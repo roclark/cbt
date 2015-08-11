@@ -1,0 +1,156 @@
+#!/usr/bin/env python2
+import argparse
+import errno
+import os
+import re
+import sys
+
+from benchmark_parser import *
+
+
+def process_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('data_directory', help='Parent directory where '
+                        'benchmark results are saved (eg. '
+                        '~/benchmark_results/)', type=str)
+    parser.add_argument('-o', '--output_dir', type=str, nargs='?', default='',
+                        help='Specify the directory to output the data files '
+                             '(eg. ~/cbt_data/)')
+    return parser.parse_args()
+
+
+def check_output_directory(out_dir):
+    if not os.path.isdir(out_dir) and out_dir is not '':
+        print '%s does not exist. Creating directory.' % (out_dir)
+        os.mkdir(out_dir)
+
+
+def get_files(directory):
+    file_list = []
+
+    for root, dirs, files in os.walk(directory):
+        for name in files:
+            low_root = root.lower()
+            if ('radosbench' in low_root and name.startswith('output.')) or\
+               ('radosbench' not in low_root and name.startswith('output_')):
+                name = os.path.join(root, name)
+                if os.stat(name).st_size != 0:
+                    file_list.append(name)
+    return file_list
+
+
+def exit_failure(message, code):
+    sys.stderr.write(message)
+    sys.exit(errno.ENOENT)
+
+
+def save_data(data, filename, note):
+    out_file = open(filename, 'w')
+    out_file.write(note)
+    for value in data:
+        try:
+            float_val = float(value)
+            out_file.write('%f\n' % float_val)
+        except ValueError:
+            pass
+    out_file.close()
+
+
+def output_status(current, total):
+    percent = 100 * current / total
+    num_bars = percent / 2
+    sys.stdout.write('\r%s%% [' % (str(percent).rjust(3)))
+    for i in range(0, 50):
+        if i < num_bars:
+            sys.stdout.write('=')
+        else:
+            sys.stdout.write(' ')
+    sys.stdout.write(']')
+    sys.stdout.flush()
+
+
+def get_fio_unit(filename):
+    bw = None
+    lat = None
+    directory = '/'.join(filename.split('/')[:-1])
+    filename = filename.split('/')[-1]
+    new_file = '%s.%s' % (filename.split('_')[0], filename.split('.')[-1])
+
+    f = open(os.path.join(directory, new_file), 'r')
+
+    for line in f:
+        match = re.findall(' lat \(.*\)', line)
+        if match and lat is None:
+            lat = match[0].split('(')[-1].split(')')[0]
+        match = re.findall(' bw \(.*\)', line)
+        if match and bw is None:
+            bw = match[0].split('(')[-1].split(')')[0]
+        if bw and lat:
+            break
+    return bw.replace(' ', ''), lat
+
+
+def get_rados_unit(filename):
+    bw = None
+    lat = None
+    f = open(filename, 'r')
+
+    for line in f:
+        match = re.findall('Bandwidth \(.*\)', line)
+        if match and bw is None:
+            bw = match[0].split('(')[-1].split(')')[0]
+        match = re.findall('Average Latency\(.*\)', line)
+        if match and lat is None:
+            lat = match[0].split('(')[-1].split(')')[0]
+        if bw and lat:
+            break
+    return bw, lat
+
+
+def iterate_files(files, output_directory):
+    current = 0
+    total = len(files)
+
+    if len(files) == 0:
+        exit_failure('Error, no output files found')
+    print 'Parsing data'
+    for filename in files:
+        current += 1
+        output_status(current, total)
+        bandwidth = None
+        latency = None
+        iops = None
+        if 'radosbench' in filename.lower():
+            bw, lat = get_rados_unit(filename)
+            latency = RadosLatency(filename, output_directory, lat)
+            bandwidth = RadosBandwidth(filename, output_directory, bw)
+        elif 'rbdfio' in filename.lower():
+            bw, lat = get_fio_unit(filename)
+            if 'output_bw' in filename.lower():
+                bandwidth = FIO(filename, output_directory, 'bandwidth',
+                                '# The following is a list of throughput '
+                                'values in %s ' % (bw))
+            elif 'output_iops' in filename.lower():
+                iops = FIO(filename, output_directory, 'iops',
+                           '# The following is a list of IOPS ')
+            else:
+                latency = FIO(filename, output_directory, 'latency',
+                              '# The following is a list of latency '
+                              'values in %s ' % (lat))
+
+        if latency is not None:
+            save_data(latency.data, latency.out_file, latency.header)
+        if bandwidth is not None:
+            save_data(bandwidth.data, bandwidth.out_file, bandwidth.header)
+        if iops is not None:
+            save_data(iops.data, iops.out_file, iops.header)
+    print  # newline
+
+
+if __name__ == "__main__":
+    args = process_arguments()
+    check_output_directory(args.output_dir)
+    files = get_files(args.data_directory)
+    iterate_files(files, args.output_dir)
+    sys.exit()
+
