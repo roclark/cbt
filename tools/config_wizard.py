@@ -2,6 +2,7 @@
 # NOTE: Be sure to run script on the main ceph monitor as the desired
 # CBT user if running the script automatically (-a).
 
+
 import argparse
 import os
 import socket
@@ -10,7 +11,7 @@ import sys
 from config_class import Config, KvmRbdFio, Radosbench, RbdFio
 
 BENCHMARKS = ["radosbench", "kvmrbdfio", "rbdfio"]
-TMP_DIR = "/dev/null"
+TMP_DIR = "/tmp/cbt"
 
 
 def parse_arguments():
