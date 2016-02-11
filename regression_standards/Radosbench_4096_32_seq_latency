@@ -1,0 +1,10 @@
+# The following is a list of latency values in ms using Radosbench.
+# Op Size: 4096
+# Concurrent Ops: 32
+# Mode: seq
+0.0013253
+0.0043093
+0.000372103
+0.000486565
+0.0071369
+0.00108708
