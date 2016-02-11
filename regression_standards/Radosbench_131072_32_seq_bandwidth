@@ -1,0 +1,6 @@
+# The following is a list of throughput values in MB/s using Radosbench.
+# Op Size: 131072
+# Concurrent Ops: 32
+# Mode: seq
+187.875000
+188.625000

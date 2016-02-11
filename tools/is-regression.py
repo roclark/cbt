@@ -59,7 +59,11 @@ def usage(msg):
 
 def read_samples_from_file( sample_filepath ):
   with open(sample_filepath, "r") as sample_file:
-      samples = [ float(r.strip()) for r in sample_file.readlines() ]
+      samples = []
+      for r in sample_file.readlines():
+          if '#' in r:  # Skip header information
+              continue
+          samples.append(float(r.strip()))
   print '%d samples read from file %s'%(len(samples), sample_filepath)
   return array(samples)
 
