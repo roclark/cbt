@@ -62,7 +62,7 @@ class KvmRbdFio(Benchmark):
         common.make_remote_dir(self.run_dir)
 
         # populate the fio files
-        logger.info('Attempting to populating fio files...')
+        logger.info('Attempting to populate fio files...')
         pre_cmd = 'sudo fio --rw=write -ioengine=sync --numjobs=%s --bs=4M --size %dM %s > /dev/null' % (self.numjobs, self.vol_size, self.names)
         common.pdsh(settings.getnodes('clients'), pre_cmd).communicate()
 
